@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Horizeo · Diseña viajes con intención</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    /* Paper palette */
+    --bg: #F1EADD;
+    --bg-soft: #E8DECB;
+    --card: #FBF6EC;
+    --card-elev: #FFFDF7;
+    --ink: #1A1816;
+    --ink-soft: #5C544A;
+    --ink-mute: #9C9387;
+    --border: #DDD2BD;
+    --border-soft: #E8DFCD;
+
+    /* Accents */
+    --accent: #B5573E;        /* terracotta */
+    --accent-deep: #7A3622;
+    --accent-soft: #E9C4B5;
+    --forest: #3D5A47;
+    --amber: #C9923D;
+    --crimson: #8B2A2A;
+
+    /* Status */
+    --status-pending: #C9923D;
+    --status-confirmed: #3D5A47;
+    --status-cancelled: #8B2A2A;
+
+    /* Type */
+    --serif: 'Instrument Serif', 'Times New Roman', serif;
+    --sans: 'Instrument Sans', system-ui, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+
+    /* Radius */
+    --r-sm: 6px;
+    --r-md: 10px;
+    --r-lg: 18px;
+    --r-xl: 28px;
+
+    --shadow-sm: 0 1px 2px rgba(26, 24, 22, 0.04), 0 0 0 1px rgba(26, 24, 22, 0.04);
+    --shadow-md: 0 8px 24px -10px rgba(26, 24, 22, 0.18), 0 2px 4px rgba(26, 24, 22, 0.04);
+    --shadow-lg: 0 24px 60px -20px rgba(26, 24, 22, 0.32), 0 8px 16px -8px rgba(26, 24, 22, 0.12);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
+  }
+
+  h1, h2, h3, h4, h5, h6 { font-family: var(--serif); font-weight: 400; letter-spacing: -0.01em; line-height: 1.1; margin: 0; }
+  h1 { font-size: clamp(2.5rem, 6vw, 4.5rem); }
+  h2 { font-size: clamp(2rem, 4.2vw, 3rem); }
+  h3 { font-size: clamp(1.5rem, 2.6vw, 2rem); }
+
+  button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; padding: 0; }
+  input, select, textarea { font-family: inherit; color: inherit; }
+  a { color: inherit; text-decoration: none; }
+
+  /* Form primitives */
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field-label { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); }
+  .input, .select, .textarea {
+    width: 100%;
+    padding: 12px 14px;
+    background: var(--card-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    font-size: 15px;
+    color: var(--ink);
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .input:focus, .select:focus, .textarea:focus { outline: none; border-color: var(--ink); background: #fff; }
+  .input::placeholder { color: var(--ink-mute); }
+  .textarea { resize: vertical; min-height: 90px; line-height: 1.45; }
+  .field-error { font-size: 12px; color: var(--crimson); margin-top: 2px; }
+  .field-help { font-size: 12px; color: var(--ink-mute); }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 12px 20px; border-radius: 999px; font-weight: 500; font-size: 14px;
+    transition: transform 0.05s, background 0.15s, color 0.15s, border-color 0.15s;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn-primary { background: var(--ink); color: var(--card); }
+  .btn-primary:hover { background: #000; }
+  .btn-accent { background: var(--accent); color: #fff; }
+  .btn-accent:hover { background: var(--accent-deep); }
+  .btn-ghost { background: transparent; color: var(--ink); border-color: var(--border); }
+  .btn-ghost:hover { background: var(--card-elev); }
+  .btn-soft { background: var(--card-elev); color: var(--ink); border-color: var(--border); }
+  .btn-soft:hover { background: #fff; }
+  .btn-danger { background: transparent; color: var(--crimson); border-color: var(--border); }
+  .btn-danger:hover { background: rgba(139, 42, 42, 0.06); border-color: var(--crimson); }
+  .btn-sm { padding: 7px 14px; font-size: 13px; }
+  .btn-lg { padding: 15px 28px; font-size: 15px; }
+  .btn-icon { padding: 9px; border-radius: 999px; }
+
+  /* Cards */
+  .card { background: var(--card); border: 1px solid var(--border-soft); border-radius: var(--r-lg); }
+
+  /* Pill / badge */
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 500; }
+  .pill-ink { background: var(--ink); color: var(--card); }
+  .pill-soft { background: var(--bg-soft); color: var(--ink-soft); }
+  .pill-pending { background: rgba(201, 146, 61, 0.14); color: #8A6418; }
+  .pill-confirmed { background: rgba(61, 90, 71, 0.14); color: var(--forest); }
+  .pill-cancelled { background: rgba(139, 42, 42, 0.12); color: var(--crimson); }
+
+  /* Layout helpers */
+  .container { width: 100%; max-width: 1240px; margin: 0 auto; padding: 0 24px; }
+  .container-narrow { width: 100%; max-width: 720px; margin: 0 auto; padding: 0 24px; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; border: 2px solid var(--bg); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--ink-mute); }
+
+  /* Animations */
+  @keyframes fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes modal-in { from { opacity: 0; transform: translateY(12px) scale(0.98); } to { opacity: 1; transform: none; } }
+  @keyframes toast-in { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
+
+  .fade-in { animation: fade-in 0.3s ease-out; }
+
+  /* Modal */
+  .overlay { position: fixed; inset: 0; background: rgba(26, 24, 22, 0.45); display: flex; align-items: center; justify-content: center; z-index: 200; padding: 24px; animation: overlay-in 0.2s; backdrop-filter: blur(2px); }
+  .modal { background: var(--card-elev); border-radius: var(--r-xl); max-width: 520px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg); animation: modal-in 0.25s; }
+  .modal-lg { max-width: 760px; }
+
+  /* Toast */
+  .toast-wrap { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 400; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
+  .toast { background: var(--ink); color: var(--card); padding: 12px 20px; border-radius: 999px; font-size: 14px; box-shadow: var(--shadow-md); animation: toast-in 0.25s; display: flex; align-items: center; gap: 10px; pointer-events: auto; }
+  .toast-success { background: var(--forest); }
+  .toast-error { background: var(--crimson); }
+
+  /* Loader */
+  .skeleton { background: linear-gradient(90deg, var(--bg-soft) 0%, #EFE6D4 50%, var(--bg-soft) 100%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: var(--r-md); }
+  @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+
+  /* Star rating */
+  .stars { display: inline-flex; gap: 2px; color: var(--amber); }
+  .star { width: 14px; height: 14px; }
+  .star-empty { color: var(--border); }
+
+  /* Italic serif accent */
+  .serif-i { font-family: var(--serif); font-style: italic; font-weight: 400; }
+  .serif { font-family: var(--serif); }
+
+  /* Divider */
+  .divider { height: 1px; background: var(--border-soft); width: 100%; }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .container, .container-narrow { padding: 0 16px; }
+    h1 { font-size: clamp(2rem, 9vw, 3rem); }
+    h2 { font-size: clamp(1.6rem, 6vw, 2.2rem); }
+  }
+</style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- React -->
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <!-- App modules in dependency order -->
+  <script type="text/babel" src="src/data.jsx"></script>
+  <script type="text/babel" src="src/ui.jsx"></script>
+  <script type="text/babel" src="src/auth.jsx"></script>
+  <script type="text/babel" src="src/explore.jsx"></script>
+  <script type="text/babel" src="src/destination.jsx"></script>
+  <script type="text/babel" src="src/itineraries.jsx"></script>
+  <script type="text/babel" src="src/reservations.jsx"></script>
+  <script type="text/babel" src="src/app.jsx"></script>
+</body>
+</html>
