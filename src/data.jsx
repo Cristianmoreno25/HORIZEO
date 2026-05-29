@@ -1,13 +1,11 @@
 /* ================================================================
-   HORIZEO · Data layer
-   - Destinos mock
-   - Helpers de storage (localStorage)
-   - useStore: estado global mínimo (usuario, itinerarios, reservas, reseñas)
+   HORIZEO · Data layer — Supabase
+   - DESTINATIONS y EXPERIENCE_OPTIONS: constantes JS para UI/filtros
+   - StoreProvider: estado global respaldado por Supabase (async)
+   - Todas las acciones retornan { ok, data?, error? }
    ================================================================ */
 
-const STORAGE_KEY = 'horizeo.v1';
-
-// ---------------------- Destinos mock ----------------------
+// ---------------------- Destinos (constantes para UI) ----------------------
 
 const DESTINATIONS = [
   {
@@ -261,249 +259,339 @@ const EXPERIENCE_OPTIONS = [
   { value: 'gastronomico', label: 'Gastronómico' },
 ];
 
-// Reseñas precargadas (de "otros viajeros")
+// Mantenido para compatibilidad de exportación — los datos reales vienen del DB
 const SEED_REVIEWS = [
-  { id: 'r-seed-1', destId: 'cartagena', author: 'Mariana Vélez', rating: 5, comment: 'El atardecer desde el Café del Mar es uno de esos momentos que te recuerdan por qué viajas. La ciudad amurallada al atardecer es magia pura.', createdAt: Date.now() - 86400000 * 12 },
-  { id: 'r-seed-2', destId: 'cartagena', author: 'Andrés Restrepo', rating: 4, comment: 'Hermosa pero atestada en temporada alta. Recomiendo ir entre semana y madrugar para recorrer las calles vacías.', createdAt: Date.now() - 86400000 * 45 },
-  { id: 'r-seed-3', destId: 'eje-cafetero', author: 'Laura Mejía', rating: 5, comment: 'El Valle de Cocora superó todas mis expectativas. Caminar entre palmas de 60 metros es algo que recordaré toda la vida.', createdAt: Date.now() - 86400000 * 7 },
-  { id: 'r-seed-4', destId: 'cusco', author: 'Diego Quintero', rating: 5, comment: 'Machu Picchu al amanecer, con la niebla disipándose lentamente, te deja sin palabras. Llevar tiempo para aclimatarse a la altura.', createdAt: Date.now() - 86400000 * 22 },
+  { id: 'r-seed-1', destId: 'cartagena', author: 'Mariana Vélez', rating: 5, comment: 'El atardecer desde el Café del Mar es uno de esos momentos que te recuerdan por qué viajas.', createdAt: Date.now() - 86400000 * 12 },
+  { id: 'r-seed-2', destId: 'cartagena', author: 'Andrés Restrepo', rating: 4, comment: 'Hermosa pero atestada en temporada alta. Recomiendo ir entre semana.', createdAt: Date.now() - 86400000 * 45 },
+  { id: 'r-seed-3', destId: 'eje-cafetero', author: 'Laura Mejía', rating: 5, comment: 'El Valle de Cocora superó todas mis expectativas.', createdAt: Date.now() - 86400000 * 7 },
+  { id: 'r-seed-4', destId: 'cusco', author: 'Diego Quintero', rating: 5, comment: 'Machu Picchu al amanecer, con la niebla disipándose lentamente, te deja sin palabras.', createdAt: Date.now() - 86400000 * 22 },
   { id: 'r-seed-5', destId: 'kyoto', author: 'Sofía Ramírez', rating: 5, comment: 'Cada templo es una experiencia distinta. Fushimi Inari de madrugada es casi espiritual.', createdAt: Date.now() - 86400000 * 30 },
-  { id: 'r-seed-6', destId: 'medellin', author: 'Camilo Ospina', rating: 4, comment: 'La energía de la ciudad es contagiosa. La Comuna 13 con un guía local te abre los ojos a otra historia.', createdAt: Date.now() - 86400000 * 60 },
-  { id: 'r-seed-7', destId: 'patagonia', author: 'Valentina Soto', rating: 5, comment: 'Los vientos son brutales pero el paisaje compensa. Trekking W cambia la perspectiva sobre lo que significa "naturaleza".', createdAt: Date.now() - 86400000 * 90 },
+  { id: 'r-seed-6', destId: 'medellin', author: 'Camilo Ospina', rating: 4, comment: 'La energía de la ciudad es contagiosa. La Comuna 13 con un guía local te abre los ojos.', createdAt: Date.now() - 86400000 * 60 },
+  { id: 'r-seed-7', destId: 'patagonia', author: 'Valentina Soto', rating: 5, comment: 'Los vientos son brutales pero el paisaje compensa. Trekking W cambia la perspectiva.', createdAt: Date.now() - 86400000 * 90 },
 ];
 
-// ---------------------- Storage helpers ----------------------
+// ---------------------- Mappers DB → JS ----------------------
 
-const defaultState = {
-  user: null,        // { id, name, email, password, prefs: { experiences: [], budget: 0 } }
-  loginAttempts: {}, // { email: { count, lockedUntil } }
-  itineraries: [],   // [{ id, name, start, end, items: [...] }]
-  reservations: [],  // [{ id, destId, status, createdAt, cost, name }]
-  reviews: [],       // user-added reviews
-};
-
-function loadState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { ...defaultState };
-    const parsed = JSON.parse(raw);
-    return { ...defaultState, ...parsed };
-  } catch (e) {
-    return { ...defaultState };
-  }
+function mapProfile(row, session) {
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    prefs: { budget: row.budget || 2000000, experiences: row.experiences || [] },
+    sessionToken: session?.access_token || 'active',
+  };
 }
 
-function saveState(state) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
-  catch (e) { console.warn('Storage failed', e); }
+function mapItinerary(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    start: row.start_date,
+    end: row.end_date,
+    items: (row.itinerary_items || []).map(mapItem),
+    createdAt: new Date(row.created_at).getTime(),
+  };
 }
 
-function resetState() {
-  localStorage.removeItem(STORAGE_KEY);
+function mapItem(row) {
+  return {
+    id: row.id,
+    itineraryId: row.itinerary_id,
+    type: row.type,
+    name: row.name,
+    date: row.item_date,
+    time: row.item_time ? row.item_time.slice(0, 5) : '',
+    cost: row.cost || 0,
+    notes: row.notes || '',
+    destId: row.dest_id || null,
+  };
 }
 
-// ---------------------- Hashing (mock bcrypt) ----------------------
-// HU01 criterio 4: contraseña almacenada cifrada. Simulamos con un hash simple
-// (no es bcrypt real, pero es un hash determinístico — sirve para el prototipo).
-function mockHash(str) {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i);
-    h = (h * 0x01000193) >>> 0;
-  }
-  return 'bcrypt$10$' + h.toString(16).padStart(16, '0') + Math.abs(h * 17).toString(16);
+function mapReservation(row) {
+  return {
+    id: row.id,
+    destId: row.dest_id,
+    destName: row.dest_name,
+    name: row.dest_name,
+    guests: row.guests,
+    cost: row.cost,
+    date: row.travel_date,
+    status: row.status,
+    createdAt: new Date(row.created_at).getTime(),
+  };
 }
 
-// ---------------------- useStore: estado global ----------------------
+function mapReview(row) {
+  return {
+    id: row.id,
+    destId: row.dest_id,
+    author: row.author_name,
+    rating: row.rating,
+    comment: row.comment || '',
+    userId: row.user_id,
+    createdAt: new Date(row.created_at).getTime(),
+  };
+}
+
+// ---------------------- StoreContext ----------------------
 
 const StoreContext = React.createContext(null);
 
 function StoreProvider({ children }) {
-  const [state, setState] = React.useState(() => loadState());
+  const [state, setState] = React.useState({
+    user: null,
+    session: null,
+    itineraries: [],
+    reservations: [],
+    reviews: [],
+    loading: true,
+  });
 
-  // Persist on every change
-  React.useEffect(() => { saveState(state); }, [state]);
+  // Refs estables para acceder al estado actual desde las acciones (sin recrearlas)
+  const sessionRef = React.useRef(null);
+  const userRef = React.useRef(null);
 
-  const update = React.useCallback((updater) => {
-    setState((prev) => (typeof updater === 'function' ? updater(prev) : { ...prev, ...updater }));
+  const loadUserData = React.useCallback(async (session) => {
+    sessionRef.current = session;
+    try {
+      const [profileRes, itinRes, resRes, revRes] = await Promise.all([
+        sb.from('profiles').select('*').eq('id', session.user.id).single(),
+        sb.from('itineraries').select('*, itinerary_items(*)').order('created_at', { ascending: false }),
+        sb.from('reservations').select('*').order('created_at', { ascending: false }),
+        sb.from('reviews').select('*').order('created_at', { ascending: false }),
+      ]);
+
+      const user = profileRes.data
+        ? mapProfile(profileRes.data, session)
+        : {
+            id: session.user.id,
+            name: session.user.user_metadata?.name || session.user.email.split('@')[0],
+            email: session.user.email,
+            prefs: { budget: 2000000, experiences: [] },
+            sessionToken: session.access_token,
+          };
+
+      userRef.current = user;
+
+      setState({
+        session,
+        user,
+        itineraries: (itinRes.data || []).map(mapItinerary),
+        reservations: (resRes.data || []).map(mapReservation),
+        reviews: (revRes.data || []).map(mapReview),
+        loading: false,
+      });
+    } catch (e) {
+      console.error('Error cargando datos de usuario:', e);
+      setState(s => ({ ...s, loading: false }));
+    }
   }, []);
 
-  // ---------------- Auth actions ----------------
+  React.useEffect(() => {
+    const { data: { subscription } } = sb.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        if (session) await loadUserData(session);
+        else setState(s => ({ ...s, loading: false }));
+        window.location.hash = '/reset-password';
+        return;
+      }
+      if (session) {
+        await loadUserData(session);
+      } else {
+        sessionRef.current = null;
+        userRef.current = null;
+        setState({ user: null, session: null, itineraries: [], reservations: [], reviews: [], loading: false });
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [loadUserData]);
+
+  // Acciones: estables (deps=[]), usan refs y setState funcional
   const actions = React.useMemo(() => ({
-    register({ name, email, password }) {
-      // HU01 criterio 1: validar email + min 8 caracteres
-      const errors = {};
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = 'Formato de correo inválido';
-      if (password.length < 8) errors.password = 'La contraseña debe tener mínimo 8 caracteres';
-      // HU01 criterio 2: correo ya registrado
-      if (state.user && state.user.email === email.toLowerCase()) {
-        errors.email = 'Este correo ya está registrado';
-      }
-      if (Object.keys(errors).length) return { ok: false, errors };
 
-      const user = {
-        id: 'u-' + Date.now(),
+    // -------- Itinerarios --------
+    async createItinerary({ name, start, end }) {
+      const userId = sessionRef.current?.user?.id;
+      if (!userId) return { ok: false, error: 'No autenticado' };
+      const { data, error } = await sb.from('itineraries').insert({
+        user_id: userId,
         name: name.trim(),
-        email: email.toLowerCase().trim(),
-        passwordHash: mockHash(password), // HU01 criterio 4
-        prefs: { experiences: [], budget: 2000000 },
-        createdAt: Date.now(),
-      };
-      update({ user });
+        start_date: start,
+        end_date: end,
+      }).select('*, itinerary_items(*)').single();
+      if (error) return { ok: false, error: error.message };
+      const it = mapItinerary(data);
+      setState(prev => ({ ...prev, itineraries: [it, ...prev.itineraries] }));
+      return { ok: true, data: it };
+    },
+
+    async addItineraryItem(itId, item) {
+      const { data, error } = await sb.from('itinerary_items').insert({
+        itinerary_id: itId,
+        type: item.type,
+        name: item.name,
+        item_date: item.date,
+        item_time: item.time || '09:00',
+        cost: item.cost || 0,
+        notes: item.notes || null,
+        dest_id: item.destId || null,
+      }).select().single();
+      if (error) return { ok: false, error: error.message };
+      const newItem = mapItem(data);
+      setState(prev => ({
+        ...prev,
+        itineraries: prev.itineraries.map(it =>
+          it.id === itId ? { ...it, items: [...it.items, newItem] } : it
+        ),
+      }));
+      return { ok: true, data: newItem };
+    },
+
+    async updateItineraryItem(itId, itemId, patch) {
+      const dbPatch = {};
+      if (patch.type !== undefined) dbPatch.type = patch.type;
+      if (patch.name !== undefined) dbPatch.name = patch.name;
+      if (patch.date !== undefined) dbPatch.item_date = patch.date;
+      if (patch.time !== undefined) dbPatch.item_time = patch.time;
+      if (patch.cost !== undefined) dbPatch.cost = patch.cost;
+      if (patch.notes !== undefined) dbPatch.notes = patch.notes || null;
+      const { error } = await sb.from('itinerary_items').update(dbPatch).eq('id', itemId);
+      if (error) return { ok: false, error: error.message };
+      setState(prev => ({
+        ...prev,
+        itineraries: prev.itineraries.map(it =>
+          it.id === itId
+            ? { ...it, items: it.items.map(x => x.id === itemId ? { ...x, ...patch } : x) }
+            : it
+        ),
+      }));
       return { ok: true };
     },
 
-    login({ email, password }) {
-      const e = email.toLowerCase().trim();
-      const now = Date.now();
-      const attempt = state.loginAttempts[e] || { count: 0, lockedUntil: 0 };
-
-      // HU02 criterio 2: tras 3 intentos, bloqueo de 5 min
-      if (attempt.lockedUntil > now) {
-        const minutes = Math.ceil((attempt.lockedUntil - now) / 60000);
-        return { ok: false, errors: { _: `Cuenta bloqueada. Intenta en ${minutes} min.` } };
-      }
-
-      if (!state.user || state.user.email !== e) {
-        // Registro implícito si no existe usuario alguno (UX cómoda en prototipo)
-        return { ok: false, errors: { _: 'No existe una cuenta con ese correo.' } };
-      }
-
-      if (state.user.passwordHash !== mockHash(password)) {
-        const next = { ...attempt, count: attempt.count + 1 };
-        if (next.count >= 3) {
-          next.lockedUntil = now + 5 * 60 * 1000;
-          next.count = 0;
-        }
-        update({ loginAttempts: { ...state.loginAttempts, [e]: next } });
-        return { ok: false, errors: { _: 'Credenciales incorrectas.' } };
-      }
-
-      // Login exitoso
-      const newAttempts = { ...state.loginAttempts };
-      delete newAttempts[e];
-      update((prev) => ({
+    async removeItineraryItem(itId, itemId) {
+      const { error } = await sb.from('itinerary_items').delete().eq('id', itemId);
+      if (error) return { ok: false, error: error.message };
+      setState(prev => ({
         ...prev,
-        user: { ...prev.user, sessionToken: 'jwt.' + Math.random().toString(36).slice(2) },
-        loginAttempts: newAttempts,
+        itineraries: prev.itineraries.map(it =>
+          it.id === itId ? { ...it, items: it.items.filter(x => x.id !== itemId) } : it
+        ),
       }));
       return { ok: true };
     },
 
-    logout() {
-      // HU02 criterio 4: cerrar sesión
-      update((prev) => ({
+    async deleteItinerary(itId) {
+      const { error } = await sb.from('itineraries').delete().eq('id', itId);
+      if (error) return { ok: false, error: error.message };
+      setState(prev => ({ ...prev, itineraries: prev.itineraries.filter(it => it.id !== itId) }));
+      return { ok: true };
+    },
+
+    async renameItinerary(itId, patch) {
+      const dbPatch = {};
+      if (patch.name) dbPatch.name = patch.name.trim();
+      if (patch.start) dbPatch.start_date = patch.start;
+      if (patch.end) dbPatch.end_date = patch.end;
+      const { error } = await sb.from('itineraries').update(dbPatch).eq('id', itId);
+      if (error) return { ok: false, error: error.message };
+      setState(prev => ({
         ...prev,
-        user: prev.user ? { ...prev.user, sessionToken: null } : null,
+        itineraries: prev.itineraries.map(it => it.id === itId ? { ...it, ...patch } : it),
       }));
+      return { ok: true };
     },
 
-    updateProfile(patch) {
-      update((prev) => ({ ...prev, user: { ...prev.user, ...patch, prefs: { ...prev.user.prefs, ...(patch.prefs || {}) } } }));
-    },
-
-    // ---------------- Itinerarios ----------------
-    createItinerary({ name, start, end }) {
-      const it = {
-        id: 'it-' + Date.now(),
-        name: name.trim(),
-        start, end,
-        items: [],
-        createdAt: Date.now(),
-      };
-      update((prev) => ({ ...prev, itineraries: [...prev.itineraries, it] }));
-      return it;
-    },
-
-    addItineraryItem(itId, item) {
-      const newItem = { id: 'item-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6), ...item };
-      update((prev) => ({
-        ...prev,
-        itineraries: prev.itineraries.map((it) => it.id === itId ? { ...it, items: [...it.items, newItem] } : it),
-      }));
-      return newItem;
-    },
-
-    updateItineraryItem(itId, itemId, patch) {
-      update((prev) => ({
-        ...prev,
-        itineraries: prev.itineraries.map((it) => it.id === itId
-          ? { ...it, items: it.items.map((x) => x.id === itemId ? { ...x, ...patch } : x) }
-          : it),
-      }));
-    },
-
-    removeItineraryItem(itId, itemId) {
-      update((prev) => ({
-        ...prev,
-        itineraries: prev.itineraries.map((it) => it.id === itId
-          ? { ...it, items: it.items.filter((x) => x.id !== itemId) }
-          : it),
-      }));
-    },
-
-    deleteItinerary(itId) {
-      update((prev) => ({ ...prev, itineraries: prev.itineraries.filter((it) => it.id !== itId) }));
-    },
-
-    renameItinerary(itId, patch) {
-      update((prev) => ({
-        ...prev,
-        itineraries: prev.itineraries.map((it) => it.id === itId ? { ...it, ...patch } : it),
-      }));
-    },
-
-    // ---------------- Reservas ----------------
-    createReservation({ destId, name, cost, date }) {
-      const dest = DESTINATIONS.find((d) => d.id === destId);
-      const r = {
-        id: 'rs-' + Date.now(),
-        destId,
-        destName: dest ? dest.name : name,
-        name: name || (dest && dest.name),
+    // -------- Reservas --------
+    async createReservation({ destId, name, cost, date, guests = 1 }) {
+      const userId = sessionRef.current?.user?.id;
+      if (!userId) return { ok: false, error: 'No autenticado' };
+      const dest = DESTINATIONS.find(d => d.id === destId);
+      const { data, error } = await sb.from('reservations').insert({
+        user_id: userId,
+        dest_id: destId,
+        dest_name: dest ? dest.name : (name || destId),
+        guests: Math.max(1, Math.min(10, guests)),
         cost,
-        date,
+        travel_date: date,
         status: 'pending',
-        createdAt: Date.now(),
-      };
-      update((prev) => ({ ...prev, reservations: [r, ...prev.reservations] }));
-      // Simular confirmación tras 2 segundos
-      setTimeout(() => {
-        setState((prev) => ({
+      }).select().single();
+      if (error) return { ok: false, error: error.message };
+      const r = mapReservation(data);
+      setState(prev => ({ ...prev, reservations: [r, ...prev.reservations] }));
+      // Auto-confirmación tras 2.2 s (simula flujo del prototipo)
+      const rid = data.id;
+      setTimeout(async () => {
+        await sb.from('reservations').update({ status: 'confirmed' }).eq('id', rid);
+        setState(prev => ({
           ...prev,
-          reservations: prev.reservations.map((x) => x.id === r.id ? { ...x, status: 'confirmed' } : x),
+          reservations: prev.reservations.map(x => x.id === rid ? { ...x, status: 'confirmed' } : x),
         }));
       }, 2200);
-      return r;
+      return { ok: true, data: r };
     },
 
-    cancelReservation(id) {
-      update((prev) => ({
+    async cancelReservation(id) {
+      const { error } = await sb.from('reservations').update({ status: 'cancelled' }).eq('id', id);
+      if (error) return { ok: false, error: error.message };
+      setState(prev => ({
         ...prev,
-        reservations: prev.reservations.map((r) => r.id === id ? { ...r, status: 'cancelled' } : r),
+        reservations: prev.reservations.map(r => r.id === id ? { ...r, status: 'cancelled' } : r),
       }));
+      return { ok: true };
     },
 
-    // ---------------- Reseñas ----------------
-    addReview({ destId, rating, comment }) {
-      const r = {
-        id: 'rv-' + Date.now(),
-        destId,
+    // -------- Reseñas --------
+    async addReview({ destId, rating, comment }) {
+      const userId = sessionRef.current?.user?.id;
+      if (!userId) return { ok: false, error: 'No autenticado' };
+      const authorName = userRef.current?.name || 'Viajero';
+      const { data, error } = await sb.from('reviews').insert({
+        user_id: userId,
+        dest_id: destId,
+        author_name: authorName,
         rating,
-        comment: comment.slice(0, 500),
-        author: state.user ? state.user.name : 'Viajero',
-        userId: state.user && state.user.id,
-        createdAt: Date.now(),
-      };
-      update((prev) => ({ ...prev, reviews: [r, ...prev.reviews] }));
-      return r;
+        comment: comment ? comment.slice(0, 500) : null,
+      }).select().single();
+      if (error) return { ok: false, error: error.message };
+      const r = mapReview(data);
+      setState(prev => ({ ...prev, reviews: [r, ...prev.reviews] }));
+      return { ok: true, data: r };
     },
 
-    resetAll() {
-      resetState();
-      setState({ ...defaultState });
+    // -------- Perfil --------
+    async updateProfile(patch) {
+      const userId = sessionRef.current?.user?.id;
+      if (!userId) return { ok: false, error: 'No autenticado' };
+      const dbPatch = {};
+      if (patch.name !== undefined) dbPatch.name = patch.name;
+      if (patch.prefs?.budget !== undefined) dbPatch.budget = patch.prefs.budget;
+      if (patch.prefs?.experiences !== undefined) dbPatch.experiences = patch.prefs.experiences;
+      const { error } = await sb.from('profiles').update(dbPatch).eq('id', userId);
+      if (error) return { ok: false, error: error.message };
+      // Actualizar ref del nombre para futuros addReview
+      if (patch.name && userRef.current) userRef.current = { ...userRef.current, name: patch.name };
+      setState(prev => ({
+        ...prev,
+        user: prev.user ? {
+          ...prev.user,
+          ...(patch.name !== undefined ? { name: patch.name } : {}),
+          prefs: { ...prev.user.prefs, ...(patch.prefs || {}) },
+        } : null,
+      }));
+      return { ok: true };
     },
-  }), [state, update]);
+
+    // -------- Sesión --------
+    async logout() {
+      await sb.auth.signOut();
+      // onAuthStateChange limpia el estado
+    },
+
+    async resetAll() {
+      await sb.auth.signOut();
+    },
+
+  }), []); // deps=[] — usa refs y setState funcional (ambos estables)
 
   return (
     <StoreContext.Provider value={{ state, actions }}>
@@ -527,6 +615,11 @@ function formatCOP(n) {
 
 function formatDate(d) {
   if (!d) return '';
+  // Parsear strings YYYY-MM-DD como fecha local (evitar desfase UTC)
+  if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+    const [y, m, day] = d.split('-').map(Number);
+    return new Date(y, m - 1, day).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
   const date = typeof d === 'string' ? new Date(d) : d;
   if (isNaN(date)) return '';
   return date.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -534,6 +627,10 @@ function formatDate(d) {
 
 function formatDateShort(d) {
   if (!d) return '';
+  if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+    const [y, m, day] = d.split('-').map(Number);
+    return new Date(y, m - 1, day).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
+  }
   const date = typeof d === 'string' ? new Date(d) : d;
   if (isNaN(date)) return '';
   return date.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
@@ -541,7 +638,9 @@ function formatDateShort(d) {
 
 function formatDay(d) {
   if (!d) return '';
-  const date = typeof d === 'string' ? new Date(d) : d;
+  const date = typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)
+    ? (() => { const [y, m, day] = d.split('-').map(Number); return new Date(y, m - 1, day); })()
+    : (typeof d === 'string' ? new Date(d) : d);
   if (isNaN(date)) return '';
   const wd = date.toLocaleDateString('es-CO', { weekday: 'long' });
   return wd.charAt(0).toUpperCase() + wd.slice(1);
@@ -549,8 +648,14 @@ function formatDay(d) {
 
 function daysBetween(start, end) {
   if (!start || !end) return 0;
-  const a = new Date(start), b = new Date(end);
-  return Math.max(1, Math.round((b - a) / 86400000) + 1);
+  const parseLocal = (s) => {
+    if (typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s)) {
+      const [y, m, d] = s.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    }
+    return new Date(s);
+  };
+  return Math.max(1, Math.round((parseLocal(end) - parseLocal(start)) / 86400000) + 1);
 }
 
 function relativeTime(ts) {
@@ -566,23 +671,21 @@ function relativeTime(ts) {
 // ---------------------- Aggregate helpers ----------------------
 
 function getDestinationById(id) {
-  return DESTINATIONS.find((d) => d.id === id);
+  return DESTINATIONS.find(d => d.id === id);
 }
 
-function getReviewsForDest(destId, userReviews = []) {
-  const seed = SEED_REVIEWS.filter((r) => r.destId === destId);
-  const user = userReviews.filter((r) => r.destId === destId);
-  return [...user, ...seed];
+// Con Supabase todas las reseñas (seed + usuario) vienen en state.reviews
+function getReviewsForDest(destId, allReviews = []) {
+  return allReviews.filter(r => r.destId === destId);
 }
 
-function getRatingForDest(destId, userReviews = []) {
-  const all = getReviewsForDest(destId, userReviews);
-  if (!all.length) {
+function getRatingForDest(destId, allReviews = []) {
+  const reviews = allReviews.filter(r => r.destId === destId);
+  if (!reviews.length) {
     const d = getDestinationById(destId);
     return d ? d.rating : 0;
   }
-  const sum = all.reduce((s, r) => s + r.rating, 0);
-  return sum / all.length;
+  return reviews.reduce((s, r) => s + r.rating, 0) / reviews.length;
 }
 
 // ---------------------- Export to window ----------------------
@@ -603,5 +706,4 @@ Object.assign(window, {
   getDestinationById,
   getReviewsForDest,
   getRatingForDest,
-  mockHash,
 });

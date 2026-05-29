@@ -91,8 +91,8 @@ function ReservationsScreen({ onOpenDest }) {
         cancelLabel="Mantener reserva"
         destructive
         onCancel={() => setCancelTarget(null)}
-        onConfirm={() => {
-          actions.cancelReservation(cancelTarget.id);
+        onConfirm={async () => {
+          await actions.cancelReservation(cancelTarget.id);
           toast('Reserva cancelada · Notificación enviada', { type: 'default' });
           setCancelTarget(null);
         }}
@@ -186,14 +186,15 @@ function ReservationModal({ open, onClose, dest }) {
 
   const totalCost = dest.priceFrom * guests;
 
-  const doReserve = () => {
+  const doReserve = async () => {
     // HU10 criterio 1: solo si dest tiene disponibilidad
     if (!dest.available) {
       toast('Este destino no tiene disponibilidad', { type: 'error' });
       return;
     }
-    const r = actions.createReservation({ destId: dest.id, name: dest.name, cost: totalCost, date });
-    setConfirmed(r);
+    const res = await actions.createReservation({ destId: dest.id, name: dest.name, cost: totalCost, date, guests });
+    if (!res.ok) { toast(res.error || 'Error al crear la reserva', { type: 'error' }); return; }
+    setConfirmed(res.data);
     setStep('done');
   };
 

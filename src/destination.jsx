@@ -239,8 +239,9 @@ function DestinationScreen({ destId, onBack, onAddToItinerary, onReserve }) {
         <ReviewForm
           destName={dest.name}
           onClose={() => setShowReviewModal(false)}
-          onSubmit={({ rating, comment }) => {
-            actions.addReview({ destId, rating, comment });
+          onSubmit={async ({ rating, comment }) => {
+            const res = await actions.addReview({ destId, rating, comment });
+            if (res && !res.ok) { toast(res.error || 'Error al publicar la reseña', { type: 'error' }); return; }
             setShowReviewModal(false);
             toast('Gracias por compartir tu experiencia', { type: 'success' });
           }}
@@ -371,7 +372,7 @@ function AddToItineraryModal({ open, onClose, dest, onCreated, onAddToItinerary 
 
   if (!dest) return null;
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     let chosen;
     if (mode === 'create') {
@@ -380,12 +381,14 @@ function AddToItineraryModal({ open, onClose, dest, onCreated, onAddToItinerary 
         toast('La fecha de fin no puede ser anterior a la de inicio', { type: 'error' });
         return;
       }
-      chosen = actions.createItinerary({ name: newName, start, end });
+      const res = await actions.createItinerary({ name: newName, start, end });
+      if (!res.ok) { toast(res.error || 'Error al crear el itinerario', { type: 'error' }); return; }
+      chosen = res.data;
     } else {
       chosen = state.itineraries.find((x) => x.id === itId);
     }
     if (!chosen) return;
-    actions.addItineraryItem(chosen.id, {
+    await actions.addItineraryItem(chosen.id, {
       type: 'destination',
       name: dest.name,
       destId: dest.id,

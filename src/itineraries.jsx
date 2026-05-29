@@ -160,7 +160,7 @@ function CreateItineraryForm({ onClose, onCreated }) {
   const [end, setEnd] = React.useState(inThreeWeeks);
   const [errors, setErrors] = React.useState({});
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     const errs = {};
     if (!name.trim()) errs.name = 'El nombre es obligatorio';
@@ -168,9 +168,10 @@ function CreateItineraryForm({ onClose, onCreated }) {
     if (!end) errs.end = 'Fecha de fin requerida';
     if (start && end && new Date(end) < new Date(start)) errs.end = 'La fecha de fin no puede ser anterior a la de inicio';
     if (Object.keys(errs).length) { setErrors(errs); return; }
-    const it = actions.createItinerary({ name, start, end });
-    toast(`Itinerario "${it.name}" creado`, { type: 'success' });
-    onCreated(it);
+    const res = await actions.createItinerary({ name, start, end });
+    if (!res.ok) { toast(res.error || 'Error al crear el itinerario', { type: 'error' }); return; }
+    toast(`Itinerario "${res.data.name}" creado`, { type: 'success' });
+    onCreated(res.data);
   };
 
   return (
@@ -328,8 +329,8 @@ function ItineraryDetailScreen({ itineraryId, onBack, onReserve }) {
             day={addModal.day}
             defaultType={addModal.type}
             onClose={() => setAddModal(null)}
-            onSubmit={(data) => {
-              actions.addItineraryItem(itinerary.id, data);
+            onSubmit={async (data) => {
+              await actions.addItineraryItem(itinerary.id, data);
               setAddModal(null);
               toast('Ítem agregado al itinerario', { type: 'success' });
             }}
@@ -343,8 +344,8 @@ function ItineraryDetailScreen({ itineraryId, onBack, onReserve }) {
             existing={editingItem}
             day={editingItem._day}
             onClose={() => setEditingItem(null)}
-            onSubmit={(data) => {
-              actions.updateItineraryItem(itinerary.id, editingItem.id, data);
+            onSubmit={async (data) => {
+              await actions.updateItineraryItem(itinerary.id, editingItem.id, data);
               setEditingItem(null);
               toast('Cambios guardados', { type: 'success' });
             }}

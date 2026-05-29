@@ -29,10 +29,29 @@ function useHashRoute() {
   return { route, navigate };
 }
 
+function LoadingScreen() {
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
+      <Logo />
+      <div style={{ color: 'var(--ink-mute)', fontSize: 14 }}>Cargando…</div>
+    </div>
+  );
+}
+
 function App() {
   const { state } = useStore();
   const { route, navigate } = useHashRoute();
   const [reservationDest, setReservationDest] = React.useState(null);
+
+  // Esperar a que Supabase resuelva la sesión inicial
+  if (state.loading) {
+    return <LoadingScreen />;
+  }
+
+  // Ruta de recuperación de contraseña — accesible sin autenticación previa
+  if (route.name === 'reset-password') {
+    return <ResetPasswordScreen />;
+  }
 
   // Si no hay sesión, mostrar auth screen
   if (!state.user || !state.user.sessionToken) {
