@@ -345,11 +345,14 @@ function StoreProvider({ children }) {
     reservations: [],
     reviews: [],
     loading: true,
+    emailVerified: false,
+    emailVerifyError: null,
   });
 
   // Refs estables para acceder al estado actual desde las acciones (sin recrearlas)
   const sessionRef = React.useRef(null);
   const userRef = React.useRef(null);
+  const emailVerifiedRef = React.useRef(false);
 
   const loadUserData = React.useCallback(async (session) => {
     sessionRef.current = session;
@@ -389,18 +392,43 @@ function StoreProvider({ children }) {
 
   React.useEffect(() => {
     const { data: { subscription } } = sb.auth.onAuthStateChange(async (event, session) => {
+      // Caso: link de verificación de correo expirado/inválido (INITIAL_SESSION sin sesión)
+      if (event === 'INITIAL_SESSION' && !session && window.__horizeoAuthError) {
+        const errType = window.__horizeoAuthError.toLowerCase().includes('expir') ? 'expired' : 'invalid';
+        window.__horizeoAuthError = null;
+        setState(prev => ({ ...prev, loading: false, emailVerifyError: errType }));
+        return;
+      }
+
       if (event === 'PASSWORD_RECOVERY') {
         if (session) await loadUserData(session);
         else setState(s => ({ ...s, loading: false }));
         window.location.hash = '/reset-password';
         return;
       }
+
+      // Caso: usuario llegó desde el link de verificación de correo → redirigir al login
+      if (event === 'SIGNED_IN' && window.__horizeoAuthType === 'signup') {
+        window.__horizeoAuthType = null;
+        emailVerifiedRef.current = true;
+        await sb.auth.signOut();
+        return;
+      }
+
       if (session) {
         await loadUserData(session);
       } else {
         sessionRef.current = null;
         userRef.current = null;
-        setState({ user: null, session: null, itineraries: [], reservations: [], reviews: [], loading: false });
+        const verified = emailVerifiedRef.current;
+        emailVerifiedRef.current = false;
+        setState(prev => ({
+          user: null, session: null,
+          itineraries: [], reservations: [], reviews: [],
+          loading: false,
+          emailVerified: verified,
+          emailVerifyError: prev.emailVerifyError,
+        }));
       }
     });
     return () => subscription.unsubscribe();
@@ -589,6 +617,10 @@ function StoreProvider({ children }) {
 
     async resetAll() {
       await sb.auth.signOut();
+    },
+
+    clearVerificationState() {
+      setState(prev => ({ ...prev, emailVerified: false, emailVerifyError: null }));
     },
 
   }), []); // deps=[] — usa refs y setState funcional (ambos estables)

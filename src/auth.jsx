@@ -23,9 +23,65 @@ function Logo({ color = 'var(--ink)' }) {
   );
 }
 
+// ---------------------- VerificationBanner ----------------------
+
+function VerificationBanner({ type, onDismiss }) {
+  const isSuccess = type === 'success';
+  return (
+    <div style={{
+      background: isSuccess ? 'var(--forest)' : 'var(--crimson)',
+      color: '#FBF6EC',
+      borderRadius: 'var(--r-lg)',
+      padding: '18px 20px',
+      marginBottom: 28,
+      display: 'flex',
+      gap: 14,
+      alignItems: 'flex-start',
+      boxShadow: 'var(--shadow-md)',
+      animation: 'fade-in 0.35s ease-out',
+    }}>
+      <div style={{
+        flexShrink: 0, width: 42, height: 42, borderRadius: 999,
+        background: 'rgba(255,255,255,0.18)', display: 'grid', placeItems: 'center',
+      }}>
+        <Icon name={isSuccess ? 'check' : 'alert'} size={20} stroke={2.5} />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontFamily: 'var(--serif)', fontSize: '1.2rem', marginBottom: 4, lineHeight: 1.15 }}>
+          {isSuccess ? 'Correo verificado' : 'Enlace no válido'}
+        </div>
+        <div style={{ fontSize: 13, opacity: 0.88, lineHeight: 1.5 }}>
+          {isSuccess
+            ? 'Tu cuenta está activa. Inicia sesión para comenzar a explorar.'
+            : type === 'error_expired'
+              ? 'El enlace de verificación expiró. Regístrate nuevamente o solicita un nuevo correo.'
+              : 'No fue posible verificar tu cuenta. El enlace puede ser inválido o ya fue usado.'}
+        </div>
+      </div>
+      <button
+        onClick={onDismiss}
+        aria-label="Cerrar"
+        style={{
+          background: 'rgba(255,255,255,0.18)', border: 'none', color: '#FBF6EC',
+          borderRadius: 999, width: 28, height: 28, display: 'grid', placeItems: 'center',
+          cursor: 'pointer', flexShrink: 0,
+        }}
+      >
+        <Icon name="close" size={14} />
+      </button>
+    </div>
+  );
+}
+
 // ---------------------- AuthScreen (wrapper responsivo) ----------------------
 
 function AuthScreenResp() {
+  const { state, actions } = useStore();
+  const showBanner = state.emailVerified || !!state.emailVerifyError;
+  const bannerType = state.emailVerified
+    ? 'success'
+    : state.emailVerifyError === 'expired' ? 'error_expired' : 'error_invalid';
+
   return (
     <div className="auth-root" style={authStyles.root}>
       <div className="auth-hero" style={authStyles.hero}>
@@ -65,6 +121,12 @@ function AuthScreenResp() {
       </div>
       <div style={authStyles.formSide}>
         <div style={authStyles.formInner}>
+          {showBanner && (
+            <VerificationBanner
+              type={bannerType}
+              onDismiss={actions.clearVerificationState}
+            />
+          )}
           <AuthFormSwitcher />
         </div>
       </div>
