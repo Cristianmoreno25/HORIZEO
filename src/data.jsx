@@ -376,22 +376,24 @@ function StoreProvider({ children }) {
 
       userRef.current = user;
 
-      setState({
+      setState(prev => ({
+        ...prev,
         session,
         user,
         itineraries: (itinRes.data || []).map(mapItinerary),
         reservations: (resRes.data || []).map(mapReservation),
         reviews: (revRes.data || []).map(mapReview),
         loading: false,
-      });
+      }));
     } catch (e) {
       console.error('Error cargando datos de usuario:', e);
-      setState(s => ({ ...s, loading: false }));
+      setState(prev => ({ ...prev, loading: false }));
     }
   }, []);
 
   React.useEffect(() => {
     const { data: { subscription } } = sb.auth.onAuthStateChange(async (event, session) => {
+      try {
       // Caso: link de verificación de correo expirado/inválido (INITIAL_SESSION sin sesión)
       if (event === 'INITIAL_SESSION' && !session && window.__horizeoAuthError) {
         const errType = window.__horizeoAuthError.toLowerCase().includes('expir') ? 'expired' : 'invalid';
@@ -429,6 +431,10 @@ function StoreProvider({ children }) {
           emailVerified: verified,
           emailVerifyError: prev.emailVerifyError,
         }));
+      }
+      } catch (e) {
+        console.error('onAuthStateChange error:', e);
+        setState(prev => ({ ...prev, loading: false }));
       }
     });
     return () => subscription.unsubscribe();
@@ -611,12 +617,29 @@ function StoreProvider({ children }) {
 
     // -------- Sesión --------
     async logout() {
-      await sb.auth.signOut();
-      // onAuthStateChange limpia el estado
+      await sb.auth.signOut(); // limpia la sesión local (localStorage) siempre, incluso sin red
+      sessionRef.current = null;
+      userRef.current = null;
+      setState({
+        user: null, session: null,
+        itineraries: [], reservations: [], reviews: [],
+        loading: false,
+        emailVerified: false,
+        emailVerifyError: null,
+      });
     },
 
     async resetAll() {
       await sb.auth.signOut();
+      sessionRef.current = null;
+      userRef.current = null;
+      setState({
+        user: null, session: null,
+        itineraries: [], reservations: [], reviews: [],
+        loading: false,
+        emailVerified: false,
+        emailVerifyError: null,
+      });
     },
 
     clearVerificationState() {

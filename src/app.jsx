@@ -122,7 +122,15 @@ function App() {
 function Navbar({ currentRoute, user, reservationCount, onNav }) {
   const [open, setOpen] = React.useState(false);
   const [userMenuOpen, setUserMenuOpen] = React.useState(false);
+  const [loggingOut, setLoggingOut] = React.useState(false);
   const { actions } = useStore();
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    setUserMenuOpen(false);
+    setOpen(false);
+    await actions.logout();
+  };
 
   const items = [
     { route: 'explore', label: 'Explorar', icon: 'compass' },
@@ -191,9 +199,9 @@ function Navbar({ currentRoute, user, reservationCount, onNav }) {
                 </button>
                 <div style={{ height: 1, background: 'var(--border-soft)', margin: '4px 0' }} />
                 {/* HU02 criterio 4: cerrar sesión desde cualquier pantalla */}
-                <button style={{ ...navStyles.userMenuItem, color: 'var(--crimson)' }} onClick={() => { actions.logout(); setUserMenuOpen(false); }}>
+                <button style={{ ...navStyles.userMenuItem, color: 'var(--crimson)', opacity: loggingOut ? 0.6 : 1 }} onClick={handleLogout} disabled={loggingOut}>
                   <Icon name="logout" size={15} />
-                  Cerrar sesión
+                  {loggingOut ? 'Cerrando sesión…' : 'Cerrar sesión'}
                 </button>
               </div>
             )}
@@ -227,9 +235,9 @@ function Navbar({ currentRoute, user, reservationCount, onNav }) {
             <Icon name="user" size={18} />
             <span style={{ flex: 1, textAlign: 'left' }}>Mi perfil</span>
           </button>
-          <button onClick={() => { actions.logout(); setOpen(false); }} style={{ ...navStyles.mobileItem, color: 'var(--crimson)' }}>
+          <button onClick={handleLogout} disabled={loggingOut} style={{ ...navStyles.mobileItem, color: 'var(--crimson)', opacity: loggingOut ? 0.6 : 1 }}>
             <Icon name="logout" size={18} />
-            <span style={{ flex: 1, textAlign: 'left' }}>Cerrar sesión</span>
+            <span style={{ flex: 1, textAlign: 'left' }}>{loggingOut ? 'Cerrando sesión…' : 'Cerrar sesión'}</span>
           </button>
         </div>
       )}
