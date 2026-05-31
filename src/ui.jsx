@@ -143,14 +143,26 @@ function ToastProvider({ children }) {
     setTimeout(() => setToasts((prev) => prev.filter((x) => x.id !== id)), t.duration);
   }, []);
 
+  // Puente global: permite mostrar toasts desde fuera de React (handlers de error, data.jsx)
+  React.useEffect(() => {
+    window.__horizeoToast = push;
+    return () => { window.__horizeoToast = null; };
+  }, [push]);
+
+  const toastClass = (type) =>
+    type === 'success' ? 'toast-success' :
+    type === 'error'   ? 'toast-error'   :
+    type === 'warning' ? 'toast-warning' : '';
+
   return (
     <ToastContext.Provider value={push}>
       {children}
       <div className="toast-wrap">
         {toasts.map((t) => (
-          <div key={t.id} className={'toast ' + (t.type === 'success' ? 'toast-success' : t.type === 'error' ? 'toast-error' : '')}>
+          <div key={t.id} className={'toast ' + toastClass(t.type)}>
             {t.type === 'success' && <Icon name="check" size={16} />}
-            {t.type === 'error' && <Icon name="alert" size={16} />}
+            {t.type === 'error'   && <Icon name="alert" size={16} />}
+            {t.type === 'warning' && <Icon name="alert" size={16} />}
             <span>{t.message}</span>
           </div>
         ))}

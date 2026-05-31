@@ -92,8 +92,12 @@ function ReservationsScreen({ onOpenDest }) {
         destructive
         onCancel={() => setCancelTarget(null)}
         onConfirm={async () => {
-          await actions.cancelReservation(cancelTarget.id);
-          toast('Reserva cancelada · Notificación enviada', { type: 'default' });
+          const res = await actions.cancelReservation(cancelTarget.id);
+          if (res && !res.ok) {
+            toast(res.error || 'Error al cancelar la reserva', { type: 'error' });
+          } else {
+            toast('Reserva cancelada · Notificación enviada', { type: 'default' });
+          }
           setCancelTarget(null);
         }}
       />

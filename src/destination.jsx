@@ -388,7 +388,7 @@ function AddToItineraryModal({ open, onClose, dest, onCreated, onAddToItinerary 
       chosen = state.itineraries.find((x) => x.id === itId);
     }
     if (!chosen) return;
-    await actions.addItineraryItem(chosen.id, {
+    const addRes = await actions.addItineraryItem(chosen.id, {
       type: 'destination',
       name: dest.name,
       destId: dest.id,
@@ -397,6 +397,10 @@ function AddToItineraryModal({ open, onClose, dest, onCreated, onAddToItinerary 
       cost: dest.priceFrom,
       notes: dest.tagline,
     });
+    if (addRes && !addRes.ok) {
+      toast(addRes.error || 'Error al agregar al itinerario', { type: 'error' });
+      return;
+    }
     onCreated && onCreated(chosen);
   };
 

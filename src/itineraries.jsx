@@ -77,8 +77,9 @@ function ItineraryListScreen({ onOpenItinerary, onCreate }) {
         confirmLabel="Eliminar"
         destructive
         onCancel={() => setDeletingId(null)}
-        onConfirm={() => {
-          actions.deleteItinerary(deletingId);
+        onConfirm={async () => {
+          const res = await actions.deleteItinerary(deletingId);
+          if (!res.ok) toast(res.error || 'Error al eliminar el itinerario', { type: 'error' });
           setDeletingId(null);
         }}
       />
@@ -262,13 +263,13 @@ function ItineraryDetailScreen({ itineraryId, onBack, onReserve }) {
           {formatDate(itinerary.start)} – {formatDate(itinerary.end)} · {days.length} día{days.length > 1 ? 's' : ''}
         </p>
         {editingName ? (
-          <form onSubmit={(e) => { e.preventDefault(); actions.renameItinerary(itinerary.id, { name: nameDraft.trim() || itinerary.name }); setEditingName(false); }}>
+          <form onSubmit={async (e) => { e.preventDefault(); const res = await actions.renameItinerary(itinerary.id, { name: nameDraft.trim() || itinerary.name }); if (!res.ok) toast(res.error || 'Error al renombrar', { type: 'error' }); setEditingName(false); }}>
             <input
               className="input"
               value={nameDraft}
               autoFocus
               onChange={(e) => setNameDraft(e.target.value)}
-              onBlur={() => { actions.renameItinerary(itinerary.id, { name: nameDraft.trim() || itinerary.name }); setEditingName(false); }}
+              onBlur={async () => { const res = await actions.renameItinerary(itinerary.id, { name: nameDraft.trim() || itinerary.name }); if (!res.ok) toast(res.error || 'Error al renombrar', { type: 'error' }); setEditingName(false); }}
               style={{ fontFamily: 'var(--serif)', fontSize: 'clamp(2.4rem, 5vw, 3.6rem)', padding: 0, background: 'transparent', border: 'none', borderBottom: '2px solid var(--ink)', borderRadius: 0, marginBottom: 12 }}
             />
           </form>

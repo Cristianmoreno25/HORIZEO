@@ -9,6 +9,50 @@
      #/profile
    ================================================================ */
 
+// ---------------------- Error Boundary ----------------------
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error, info) {
+    console.error('ErrorBoundary:', error, info);
+    if (window.__horizeoToast) {
+      window.__horizeoToast('Algo salió mal. Recarga la página si el problema persiste.', { type: 'error', duration: 8000 });
+    }
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20, background: 'var(--bg)', padding: 24 }}>
+          <Logo />
+          <h2 style={{ fontFamily: 'var(--serif)', fontSize: '1.8rem', textAlign: 'center', margin: 0 }}>Algo salió mal</h2>
+          <p style={{ color: 'var(--ink-soft)', textAlign: 'center', maxWidth: 380, fontSize: 15, margin: 0, lineHeight: 1.6 }}>
+            Ocurrió un error inesperado. Por favor recarga la página.
+          </p>
+          <button className="btn btn-primary" onClick={() => window.location.reload()}>
+            Recargar página
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// Handler global para promesas sin catch
+window.addEventListener('unhandledrejection', (event) => {
+  const msg = event.reason?.message || 'Error inesperado. Revisa tu conexión.';
+  if (window.__horizeoToast) {
+    window.__horizeoToast(msg, { type: 'error', duration: 5000 });
+  }
+  event.preventDefault();
+});
+
 function useHashRoute() {
   const parse = () => {
     const h = window.location.hash.replace(/^#/, '') || '/explore';
@@ -397,7 +441,9 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <StoreProvider>
     <ToastProvider>
-      <App />
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
     </ToastProvider>
   </StoreProvider>
 );

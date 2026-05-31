@@ -387,6 +387,9 @@ function StoreProvider({ children }) {
       }));
     } catch (e) {
       console.error('Error cargando datos de usuario:', e);
+      if (window.__horizeoToast) {
+        window.__horizeoToast('Error al cargar los datos. Verifica tu conexión.', { type: 'error', duration: 6000 });
+      }
       setState(prev => ({ ...prev, loading: false }));
     }
   }, []);
@@ -434,6 +437,9 @@ function StoreProvider({ children }) {
       }
       } catch (e) {
         console.error('onAuthStateChange error:', e);
+        if (window.__horizeoToast) {
+          window.__horizeoToast('Error de sesión. Recarga la página.', { type: 'error', duration: 6000 });
+        }
         setState(prev => ({ ...prev, loading: false }));
       }
     });
